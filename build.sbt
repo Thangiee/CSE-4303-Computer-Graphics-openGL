@@ -16,3 +16,19 @@ val jogl = Seq(
 )
 
 libraryDependencies ++= jogl :+ scalaFx
+
+val joglMergeStrategy = new sbtassembly.MergeStrategy {
+  val name = "jogl_rename"
+  def apply(tempDir: File, path: String, files: Seq[File]) =
+    Right(files flatMap { file =>
+      val (jar, _, _, isJar) = sbtassembly.AssemblyUtils.sourceOfFileForMerge(tempDir, file)
+      if (isJar) Seq(file -> s"natives/${jar.getPath.split("-natives-")(1).split(".jar")(0)}/$path")
+      else Seq(file -> path)
+    })
+}
+assemblyMergeStrategy in assembly := {
+  case x if x.endsWith(".so") || x.endsWith(".dll") || x.endsWith(".jnilib") => joglMergeStrategy
+  case x =>
+    val oldStrategy = (assemblyMergeStrategy in assembly).value
+    oldStrategy(x)
+}
