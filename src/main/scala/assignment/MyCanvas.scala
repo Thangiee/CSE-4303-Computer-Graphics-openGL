@@ -22,13 +22,22 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
   private var glu: GLU = _
   private var gl: GL2 = _
 
+  private var angleX = 0.0
+  private var angleY = 0.0
+  private var angleZ = 0.0
+  private var transX = 0.0
+  private var transY = 0.0
+  private var transZ = 0.0
+  private var scale  = 1.0
+
   setSize(width, height)
+  setLocation(100, 100)
   addGLEventListener(this)
   addKeyListener(this)
 
   override def init(glAutoDrawable: GLAutoDrawable): Unit = {
     // parse cameras data
-    io.Source.fromFile("cameras_05.txt").getLines().mkString("\n").split("\n").map { line =>
+    io.Source.fromFile("cameras_05.txt").getLines().mkString("\n").split("\n").foreach { line =>
       line.head match {
         case 'c' => cameras += Camera()
         case 'i' => cameras.last.name = line.split(" ").last
@@ -45,92 +54,78 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
     gl = glAutoDrawable.getGL.getGL2
 
     // Global settings.
+    gl.glClearColor(1, 1, 0, 0)
     gl.glEnable(GL.GL_DEPTH_TEST)
+    gl.glEnable(GL.GL_SCISSOR_TEST)
     gl.glDepthFunc(GL.GL_LEQUAL)
     gl.glClearColor(0f, 0f, 0f, 1f)
-
     val animator = new FPSAnimator(this, 60)
     animator.start()
-//    gl.glMatrixMode(GL_PROJECTION)
-//    gl.glLoadIdentity()
-//
-//    gl.glMatrixMode(GL_MODELVIEW)
-//    gl.glLoadIdentity()
-//
-//    val glu = GLU.createGLU(gl)
-//
-//    val c = cameras(0)
-//    println(c)
-//    glu.gluLookAt(
-//      c.vrp.x, c.vrp.y, c.vrp.z,
-//      c.vpn.x, c.vpn.y, c.vpn.z,
-//      c.vup.x, c.vup.y, c.vup.z
-//    )
   }
 
   override def display(glAutoDrawable: GLAutoDrawable): Unit = {
-    gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-
-    setCamera(gl, glu, 1000)
-    update()
-    render(glAutoDrawable)
+    render()
   }
 
-  override def reshape(glAutoDrawable: GLAutoDrawable, x: Int, y: Int, w: Int, h: Int): Unit = {
-    val gl = glAutoDrawable.getGL
-    gl.glViewport(0, 0, width, height)
-  }
+  override def reshape(glAutoDrawable: GLAutoDrawable, x: Int, y: Int, w: Int, h: Int): Unit = {}
 
   override def dispose(glAutoDrawable: GLAutoDrawable): Unit = {}
 
-  private def update(): Unit = {}
-
-  private def render(drawable: GLAutoDrawable): Unit = {
-    drawViewport(cameras(0).viewport)
-//    cameras.map(c => drawViewport(c.viewport, gl))
+  private def render(): Unit = {
     val w = getWidth
     val h = getHeight
 
-    gl.glColor3d(1.0, 1.0, 0.0); // Color (RGB): Yellow
-    faces.map { f =>
-      val v1 = vertexes(f.k - 1)
-      val v2 = vertexes(f.l - 1)
-      val v3 = vertexes(f.m - 1)
+    cameras.foreach { c =>
+      val vp = c.viewport
+      val vv = c.viewVolume
 
-      gl.glBegin(GL.GL_LINE_LOOP)
-      gl.glVertex2d(v1.x, v1.y)
-      gl.glVertex2d(v2.x, v2.y)
-      gl.glVertex2d(v3.x, v3.y)
-      gl.glEnd()
+      gl.glScissor((vp.minX * w).toInt, (vp.minY * h).toInt, ((vp.maxX - vp.minX)* w).toInt, ((vp.maxY - vp.minY) * h).toInt)
+      gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+      gl.glClearColor(.4f, .4f, .6f, 0)
+
+      gl.glMatrixMode(GL_PROJECTION)
+      gl.glLoadIdentity()
+
+      if (c.projType == Projection.Perspective) {
+        gl.glFrustum(vv.minU, vv.maxU, vv.minV, vv.maxV, vv.minN, vv.maxN)
+      } else {
+        gl.glOrtho(vv.minU, vv.maxU, vv.minV, vv.maxV, vv.minN, vv.maxN)
+      }
+      glu.gluLookAt(
+        c.vrp.x, c.vrp.y, c.vrp.z,
+        c.vpn.x, c.vpn.y, c.vpn.z,
+        c.vup.x, c.vup.y, c.vup.z
+      )
+
+      gl.glMatrixMode(GL_MODELVIEW)
+      gl.glLoadIdentity()
+      gl.glViewport((vp.minX * w).toInt, (vp.minY * h).toInt, ((vp.maxX - vp.minX)* w).toInt, ((vp.maxY - vp.minY) * h).toInt)
+      gl.glPushMatrix()
+      update()
+      gl.glColor3d(1.0, 1.0, 0.0); // Color (RGB): Yellow
+      faces.foreach { f =>
+        val v1 = vertexes(f.k - 1)
+        val v2 = vertexes(f.l - 1)
+        val v3 = vertexes(f.m - 1)
+
+        gl.glBegin(GL.GL_LINE_LOOP)
+        gl.glVertex3d(v1.x, v1.y, v1.z)
+        gl.glVertex3d(v2.x, v2.y, v2.z)
+        gl.glVertex3d(v3.x, v3.y, v3.z)
+        gl.glEnd()
+      }
+      gl.glPopMatrix()
     }
+
+    gl.glFlush()
   }
 
-  private def setCamera(gl: GL2, glu: GLU, distance: Double): Unit = {
-    gl.glMatrixMode(GL_PROJECTION)
-    gl.glLoadIdentity()
-    val ratio = getWidth.toDouble / getHeight.toDouble
-    glu.gluPerspective(45, ratio, 1, 1000)
-    glu.gluLookAt(
-      0, 0, distance,
-      0, 0, 0,
-      0, 1, 0
-    )
-
-    gl.glMatrixMode(GL_MODELVIEW)
-    gl.glLoadIdentity()
-  }
-
-  private def drawViewport(vp: Viewport): Unit = {
-    val w = getWidth
-    val h = getHeight
-    println(w, h)
-    gl.glColor3d(1.0, 1.0, 0.0); // Color (RGB): Yellow
-    gl.glBegin(GL.GL_LINE_LOOP)
-    gl.glVertex2d(w * vp.minX, h * vp.minY)
-    gl.glVertex2d(w * vp.minX, h * vp.maxY)
-    gl.glVertex2d(w * vp.maxX, h * vp.maxY)
-    gl.glVertex2d(w * vp.maxX, h * vp.minY)
-    gl.glEnd()
+  private def update(): Unit = {
+    gl.glRotated(angleX, 1, 0, 0)
+    gl.glRotated(angleY, 0, 1, 0)
+    gl.glRotated(angleZ, 0, 0, 1)
+    gl.glTranslated(transX, transY, transZ)
+    gl.glScaled(scale, scale, scale)
   }
 
   override def keyTyped(e: KeyEvent): Unit = {
@@ -143,8 +138,8 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
       case 'Y' => rotate(-5, 'y')
       case 'z' => rotate(5, 'z')
       case 'Z' => rotate(-5, 'z')
-      case 's' => scale(1.05)
-      case 'S' => scale(1/1.05)
+      case 's' => scale(.05)
+      case 'S' => scale(-.05)
       case 'f' => moveEye('f')
       case 'b' => moveEye('b')
       case 'p' =>
@@ -171,7 +166,8 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
 
   private def loadAndDisplay(): Unit = {
     println(s"load $inputFile")
-    io.Source.fromFile(inputFile).getLines().mkString("\n").split("\n").map { line =>
+    reset()
+    io.Source.fromFile(inputFile).getLines().mkString("\n").split("\n").foreach { line =>
       line.head match {
         case 'v' => vertexes += parseVertex(line)
         case 'f' => faces += parseFace(line)
@@ -181,14 +177,36 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
   }
 
   private def rotate(degrees: Double, axis: Char): Unit = {
-
+    axis match {
+      case 'x' | 'X' => angleX += degrees
+      case 'y' | 'Y' => angleY += degrees
+      case 'z' | 'Z' => angleZ += degrees
+    }
   }
 
   private def scale(factor: Double): Unit = {
-
+    scale += factor
   }
 
   private def moveEye(direction: Char): Unit = {
+    direction match {
+      case 'l' => transX += .05
+      case 'r' => transX -= .05
+      case 'd' => transY += .05
+      case 'u' => transY -= .05
+      case 'f' => transZ += .05
+      case 'b' => transZ -= .05
+    }
+  }
 
+  private def reset(): Unit = {
+    Seq(vertexes, faces).foreach(_.clear())
+    angleX = 0.0
+    angleY = 0.0
+    angleZ = 0.0
+    transX = 0.0
+    transY = 0.0
+    transZ = 0.0
+    scale  = 1.0
   }
 }

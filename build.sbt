@@ -11,8 +11,8 @@ resolvers ++= Seq("snapshots", "releases").map(Resolver.sonatypeRepo)
 val scalaFx = "org.scalafx" %% "scalafx" % "8.0.31-R7"
 
 val jogl = Seq(
-  "org.jogamp.gluegen" % "gluegen-rt-main" % "2.2.4",
-  "org.jogamp.jogl" % "jogl-all-main" % "2.2.4"
+  "org.jogamp.gluegen" % "gluegen-rt-main" % "2.2.4" withJavadoc(),
+  "org.jogamp.jogl" % "jogl-all-main" % "2.2.4" withSources() withJavadoc()
 )
 
 libraryDependencies ++= jogl :+ scalaFx

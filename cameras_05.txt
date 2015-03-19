@@ -25,8 +25,8 @@ s 0.1 0.6 0.4 0.9
 c
 i perspective_1
 t perspective
-e 5 5 5
-l 0 01
+e 0 0 10
+l 0 0 1
 u 0 1 0
 w -2 2 -3 3 6 20
 s 0.5 0.5 0.75 0.75
