@@ -1,5 +1,6 @@
 package assignment
 
+import java.awt.{Color, Font}
 import java.awt.event.{KeyEvent, KeyListener}
 import javax.media.opengl._
 import javax.media.opengl.awt.GLCanvas
@@ -9,6 +10,7 @@ import javax.swing.JFileChooser
 
 import assignment.Projection.{Parallel, Perspective}
 import com.jogamp.opengl.util.FPSAnimator
+import com.jogamp.opengl.util.awt.TextRenderer
 import utils._
 
 import scala.collection.mutable.ListBuffer
@@ -17,6 +19,7 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
   private val vertexes  = new ListBuffer[Vertex]()
   private val faces     = new ListBuffer[Face]()
   private val cameras   = new ListBuffer[Camera]()
+  private val textRenderer = new TextRenderer(new Font("Verdana", Font.BOLD, 12))
   private var inputFile = "pyramid_05.txt"
 
   private var glu: GLU = _
@@ -100,6 +103,14 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
       gl.glMatrixMode(GL_MODELVIEW)
       gl.glLoadIdentity()
       gl.glViewport((vp.minX * w).toInt, (vp.minY * h).toInt, ((vp.maxX - vp.minX)* w).toInt, ((vp.maxY - vp.minY) * h).toInt)
+
+      // draw camera name
+      textRenderer.beginRendering(200, 150)
+      textRenderer.setColor(Color.YELLOW)
+      textRenderer.setSmoothing(true)
+      textRenderer.draw(c.name, 2, 2)
+      textRenderer.endRendering()
+
       gl.glPushMatrix()
       update()
       gl.glColor3d(1.0, 1.0, 0.0); // Color (RGB): Yellow
@@ -190,10 +201,10 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
 
   private def moveEye(direction: Char): Unit = {
     direction match {
-      case 'l' => transX += .05
-      case 'r' => transX -= .05
-      case 'd' => transY += .05
-      case 'u' => transY -= .05
+      case 'l' => transX -= .05
+      case 'r' => transX += .05
+      case 'd' => transY -= .05
+      case 'u' => transY += .05
       case 'f' => transZ += .05
       case 'b' => transZ -= .05
     }
