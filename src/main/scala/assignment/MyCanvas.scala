@@ -16,14 +16,16 @@ import utils._
 import scala.collection.mutable.ListBuffer
 
 class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(cap) with GLEventListener with KeyListener {
-  private val vertexes  = new ListBuffer[Vertex]()
-  private val faces     = new ListBuffer[Face]()
-  private val cameras   = new ListBuffer[Camera]()
-  private val textRenderer = new TextRenderer(new Font("Verdana", Font.BOLD, 12))
-  private var inputFile = "pyramid_05.txt"
+  private val vertexes      = new ListBuffer[Vertex]()
+  private val faces         = new ListBuffer[Face]()
+  private val cameras       = new ListBuffer[Camera]()
+  private val controlPoints = new ListBuffer[ControlPoint]()
+  private val textRenderer  = new TextRenderer(new Font("Verdana", Font.BOLD, 12))
+  private var inputFile     = "patches_06.txt"
+  private var resolution    = 4
 
   private var glu: GLU = _
-  private var gl: GL2 = _
+  private var gl : GL2 = _
 
   private var angleX = 0.0
   private var angleY = 0.0
@@ -40,7 +42,7 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
 
   override def init(glAutoDrawable: GLAutoDrawable): Unit = {
     // parse cameras data
-    io.Source.fromFile("cameras_05.txt").getLines().mkString("\n").split("\n").foreach { line =>
+    io.Source.fromFile("cameras_06.txt").getLines().mkString("\n").split("\n").foreach { line =>
       line.head match {
         case 'c' => cameras += Camera()
         case 'i' => cameras.last.name = line.split(" ").last
@@ -82,7 +84,7 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
       val vp = c.viewport
       val vv = c.viewVolume
 
-      gl.glScissor((vp.minX * w).toInt, (vp.minY * h).toInt, ((vp.maxX - vp.minX)* w).toInt, ((vp.maxY - vp.minY) * h).toInt)
+      gl.glScissor((vp.minX * w).toInt, (vp.minY * h).toInt, ((vp.maxX - vp.minX) * w).toInt, ((vp.maxY - vp.minY) * h).toInt)
       gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
       gl.glClearColor(.4f, .4f, .6f, 0)
 
@@ -102,7 +104,7 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
 
       gl.glMatrixMode(GL_MODELVIEW)
       gl.glLoadIdentity()
-      gl.glViewport((vp.minX * w).toInt, (vp.minY * h).toInt, ((vp.maxX - vp.minX)* w).toInt, ((vp.maxY - vp.minY) * h).toInt)
+      gl.glViewport((vp.minX * w).toInt, (vp.minY * h).toInt, ((vp.maxX - vp.minX) * w).toInt, ((vp.maxY - vp.minY) * h).toInt)
 
       // draw camera name
       textRenderer.beginRendering(200, 150)
@@ -153,6 +155,8 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
       case 'S' => scale(-.05)
       case 'f' => moveEye('f')
       case 'b' => moveEye('b')
+      case 'r' => changeResolution(-1)
+      case 'R' => changeResolution(1)
       case 'p' =>
       case _   =>
     }
@@ -160,11 +164,11 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
 
   override def keyPressed(e: KeyEvent): Unit = {
     e.getKeyCode match {
-      case KeyEvent.VK_LEFT   => moveEye('l')
-      case KeyEvent.VK_RIGHT  => moveEye('r')
-      case KeyEvent.VK_UP     => moveEye('u')
-      case KeyEvent.VK_DOWN   => moveEye('d')
-      case _ =>
+      case KeyEvent.VK_LEFT  => moveEye('l')
+      case KeyEvent.VK_RIGHT => moveEye('r')
+      case KeyEvent.VK_UP    => moveEye('u')
+      case KeyEvent.VK_DOWN  => moveEye('d')
+      case _                 =>
     }
   }
 
@@ -180,6 +184,8 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
     reset()
     io.Source.fromFile(inputFile).getLines().mkString("\n").split("\n").foreach { line =>
       line.head match {
+        case 'n' => resolution = parseInt(line)
+        case 'b' => controlPoints += parseControlPoint(line)
         case 'v' => vertexes += parseVertex(line)
         case 'f' => faces += parseFace(line)
         case _   =>
@@ -210,14 +216,16 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
     }
   }
 
+  private def changeResolution(delta: Int) = resolution += delta
+
   private def reset(): Unit = {
-    Seq(vertexes, faces).foreach(_.clear())
+    Seq(vertexes, faces, controlPoints).foreach(_.clear())
     angleX = 0.0
     angleY = 0.0
     angleZ = 0.0
     transX = 0.0
     transY = 0.0
     transZ = 0.0
-    scale  = 1.0
+    scale = 1.0
   }
 }

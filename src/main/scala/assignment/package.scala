@@ -1,6 +1,7 @@
 
 package object assignment {
 
+  case class ControlPoint(x: Double, y: Double, z: Double)
   case class Face(k: Int, l: Int, m: Int)
   case class Window(minX: Double, minY: Double, maxX: Double, maxY: Double)
   case class Viewport(minX: Double, minY: Double, maxX: Double, maxY: Double)

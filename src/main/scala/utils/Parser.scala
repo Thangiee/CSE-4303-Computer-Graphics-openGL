@@ -54,6 +54,13 @@ trait Parser {
     val Array(x, y, z) = text.split("\\s+").tail
     PRP(x.toDouble, y.toDouble ,z.toDouble)
   }
+
+  def parseControlPoint(text: String): ControlPoint = {
+    val Array(x, y, z) = text.split("\\s+").tail
+    ControlPoint(x.toDouble, y.toDouble ,z.toDouble)
+  }
+
+  def parseInt(text: String): Int = text.split("\\s+").last.toInt
 }
 
 object Parser extends Parser

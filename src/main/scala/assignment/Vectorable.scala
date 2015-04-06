@@ -17,3 +17,5 @@ case class VUP(x: Double, y: Double, z: Double) extends Vectorable
 case class PRP(x: Double, y: Double, z: Double) extends Vectorable
 
 case class Vertex(x: Double, y: Double, z: Double) extends Vectorable
+
+case class GeoVector(x: Double, y: Double, z: Double) extends Vectorable
