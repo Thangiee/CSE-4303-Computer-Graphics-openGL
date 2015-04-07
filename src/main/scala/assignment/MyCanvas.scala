@@ -2,8 +2,10 @@ package assignment
 
 import java.awt.{Color, Font}
 import java.awt.event.{KeyEvent, KeyListener}
+import java.nio.FloatBuffer
 import javax.media.opengl._
 import javax.media.opengl.awt.GLCanvas
+import javax.media.opengl.fixedfunc.GLLightingFunc
 import javax.media.opengl.fixedfunc.GLMatrixFunc._
 import javax.media.opengl.glu.GLU
 import javax.swing.JFileChooser
@@ -13,7 +15,7 @@ import com.jogamp.opengl.util.FPSAnimator
 import com.jogamp.opengl.util.awt.TextRenderer
 import utils._
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(cap) with GLEventListener with KeyListener {
   private val vertexes      = new ListBuffer[Vertex]()
@@ -35,10 +37,20 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
   private var transZ = 0.0
   private var scale  = 1.0
 
-  setSize(width, height)
-  setLocation(100, 100)
+  setSize(640, 480)
+//  setLocation(100, 100)
   addGLEventListener(this)
   addKeyListener(this)
+
+  val ctrlPoints = Seq(
+    -4f, -4f, 0f,
+    -2f,  4f, 0f,
+     2f, -4f, 0f,
+     4f,  4f, 0f
+  )
+  val ctrlPointsBuff = FloatBuffer.allocate(12)
+  ctrlPoints.foreach(p => ctrlPointsBuff.put(p))
+  ctrlPointsBuff.rewind()
 
   override def init(glAutoDrawable: GLAutoDrawable): Unit = {
     // parse cameras data
@@ -59,79 +71,46 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
     gl = glAutoDrawable.getGL.getGL2
 
     // Global settings.
-    gl.glClearColor(1, 1, 0, 0)
-    gl.glEnable(GL.GL_DEPTH_TEST)
-    gl.glEnable(GL.GL_SCISSOR_TEST)
-    gl.glDepthFunc(GL.GL_LEQUAL)
-    gl.glClearColor(0f, 0f, 0f, 1f)
+    gl.glClearColor(0, 0, 0, 0)
+    gl.glShadeModel(GLLightingFunc.GL_FLAT)
+    gl.glMap1f(GL2.GL_MAP1_VERTEX_3, 0, 1, 3, 4, ctrlPointsBuff)
     val animator = new FPSAnimator(this, 60)
     animator.start()
   }
 
   override def display(glAutoDrawable: GLAutoDrawable): Unit = {
-    render()
+    gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+    gl.glLoadIdentity()
+
+    gl.glColor3f(1, 0, 0)
+    gl.glEnable(GL2.GL_MAP1_VERTEX_3)
+    gl.glBegin(GL.GL_LINE_STRIP)
+    for (i ← 1 to 30) gl.glEvalCoord1f(i / 30f)
+    gl.glEnd()
+
+    gl.glPointSize(5)
+    gl.glColor3f(1, 1, 0)
+    gl.glBegin(GL.GL_POINTS)
+    for (i ← 0 to 3) gl.glVertex3f(ctrlPoints(i * 3), ctrlPoints(i * 3 + 1), ctrlPoints(i * 3 + 2))
+    gl.glEnd()
   }
 
-  override def reshape(glAutoDrawable: GLAutoDrawable, x: Int, y: Int, w: Int, h: Int): Unit = {}
+  override def reshape(glAutoDrawable: GLAutoDrawable, x: Int, y: Int, w: Int, h: Int): Unit = {
+    gl.glViewport(0, 0, w, h)
+    gl.glMatrixMode(GL_PROJECTION)
+    gl.glLoadIdentity()
+    if (w <= h) {
+      gl.glOrtho(-5.0, 5.0, -5.0 * h / w,  5.0 * h / w, -5.0, 5.0)
+    } else {
+      gl.glOrtho(-5.0 * w / h, 5.0 * w / h, -5.0, 5.0, -5.0, 5.0)
+    }
+    gl.glMatrixMode(GL_MODELVIEW)
+    gl.glLoadIdentity()
+  }
 
   override def dispose(glAutoDrawable: GLAutoDrawable): Unit = {}
 
-  private def render(): Unit = {
-    val w = getWidth
-    val h = getHeight
 
-    cameras.foreach { c =>
-      val vp = c.viewport
-      val vv = c.viewVolume
-
-      gl.glScissor((vp.minX * w).toInt, (vp.minY * h).toInt, ((vp.maxX - vp.minX) * w).toInt, ((vp.maxY - vp.minY) * h).toInt)
-      gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-      gl.glClearColor(.4f, .4f, .6f, 0)
-
-      gl.glMatrixMode(GL_PROJECTION)
-      gl.glLoadIdentity()
-
-      if (c.projType == Projection.Perspective) {
-        gl.glFrustum(vv.minU, vv.maxU, vv.minV, vv.maxV, vv.minN, vv.maxN)
-      } else {
-        gl.glOrtho(vv.minU, vv.maxU, vv.minV, vv.maxV, vv.minN, vv.maxN)
-      }
-      glu.gluLookAt(
-        c.vrp.x, c.vrp.y, c.vrp.z,
-        c.vpn.x, c.vpn.y, c.vpn.z,
-        c.vup.x, c.vup.y, c.vup.z
-      )
-
-      gl.glMatrixMode(GL_MODELVIEW)
-      gl.glLoadIdentity()
-      gl.glViewport((vp.minX * w).toInt, (vp.minY * h).toInt, ((vp.maxX - vp.minX) * w).toInt, ((vp.maxY - vp.minY) * h).toInt)
-
-      // draw camera name
-      textRenderer.beginRendering(200, 150)
-      textRenderer.setColor(Color.YELLOW)
-      textRenderer.setSmoothing(true)
-      textRenderer.draw(c.name, 2, 2)
-      textRenderer.endRendering()
-
-      gl.glPushMatrix()
-      update()
-      gl.glColor3d(1.0, 1.0, 0.0); // Color (RGB): Yellow
-      faces.foreach { f =>
-        val v1 = vertexes(f.k - 1)
-        val v2 = vertexes(f.l - 1)
-        val v3 = vertexes(f.m - 1)
-
-        gl.glBegin(GL.GL_LINE_LOOP)
-        gl.glVertex3d(v1.x, v1.y, v1.z)
-        gl.glVertex3d(v2.x, v2.y, v2.z)
-        gl.glVertex3d(v3.x, v3.y, v3.z)
-        gl.glEnd()
-      }
-      gl.glPopMatrix()
-    }
-
-    gl.glFlush()
-  }
 
   private def update(): Unit = {
     gl.glRotated(angleX, 1, 0, 0)
