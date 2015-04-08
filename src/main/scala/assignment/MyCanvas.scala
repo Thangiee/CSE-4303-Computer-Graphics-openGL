@@ -38,19 +38,28 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
   private var scale  = 1.0
 
   setSize(640, 480)
-//  setLocation(100, 100)
+  //  setLocation(100, 100)
   addGLEventListener(this)
   addKeyListener(this)
 
-  val ctrlPoints = Seq(
-    -4f, -4f, 0f,
-    -2f,  4f, 0f,
-     2f, -4f, 0f,
-     4f,  4f, 0f
+  val ctrlPoints = Array(
+    -1.5, -1.5, 4.0,
+    -0.5, -1.5, 2.0,
+    0.5, -1.5, -1.0,
+    1.5, -1.5, 2.0,
+    -1.5, -0.5, 1.0,
+    -0.5, -0.5, 3.0,
+    0.5, -0.5, 0.0,
+    1.5, -0.5, -1.0,
+    -1.5, 0.5, 4.0,
+    -0.5, 0.5, 0.0,
+    0.5, 0.5, 3.0,
+    1.5, 0.5, 4.0,
+    -1.5, 1.5, -2.0,
+    -0.5, 1.5, -2.0,
+    0.5, 1.5, 0.0,
+    1.5, 1.5, -1.0
   )
-  val ctrlPointsBuff = FloatBuffer.allocate(12)
-  ctrlPoints.foreach(p => ctrlPointsBuff.put(p))
-  ctrlPointsBuff.rewind()
 
   override def init(glAutoDrawable: GLAutoDrawable): Unit = {
     // parse cameras data
@@ -72,27 +81,51 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
 
     // Global settings.
     gl.glClearColor(0, 0, 0, 0)
-    gl.glShadeModel(GLLightingFunc.GL_FLAT)
-    gl.glMap1f(GL2.GL_MAP1_VERTEX_3, 0, 1, 3, 4, ctrlPointsBuff)
-    val animator = new FPSAnimator(this, 60)
+    gl.glMap2d(GL2.GL_MAP2_VERTEX_3, 0, 1, 3, 4, 0, 1, 12, 4, ctrlPoints, 0)
+    gl.glEnable(GL2.GL_MAP2_VERTEX_3)
+    val animator = new FPSAnimator(this, 30)
     animator.start()
   }
 
   override def display(glAutoDrawable: GLAutoDrawable): Unit = {
     gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
     gl.glLoadIdentity()
-
+    val a = 30
+    val b = 30
     gl.glColor3f(1, 0, 0)
-    gl.glEnable(GL2.GL_MAP1_VERTEX_3)
-    gl.glBegin(GL.GL_LINE_STRIP)
-    for (i ← 1 to 30) gl.glEvalCoord1f(i / 30f)
-    gl.glEnd()
+    gl.glPushMatrix()
+    gl.glRotated(85.0, 1.0, 1.0, 1.0)
 
-    gl.glPointSize(5)
-    gl.glColor3f(1, 1, 0)
-    gl.glBegin(GL.GL_POINTS)
-    for (i ← 0 to 3) gl.glVertex3f(ctrlPoints(i * 3), ctrlPoints(i * 3 + 1), ctrlPoints(i * 3 + 2))
-    gl.glEnd()
+    gl.glPolygonMode(GL.GL_FRONT_AND_BACK, GL2GL3.GL_FILL)
+    for (j ← 0 to b) {
+      gl.glBegin(GL.GL_LINE_STRIP)
+      for (i ← 0 to a) {
+        gl.glEvalCoord2f(i / a.toFloat, j / b.toFloat)
+      }
+      gl.glEnd()
+
+      gl.glBegin(GL.GL_LINE_STRIP)
+      for (i ← 0 to a) {
+        gl.glEvalCoord2f(j / b.toFloat, i / a.toFloat)
+      }
+      gl.glEnd()
+
+      gl.glBegin(GL.GL_LINE_STRIP)
+      for (i ← 0 to (a - j)) {
+        gl.glEvalCoord2f(i / b.toFloat, (i + j) / a.toFloat)
+      }
+      gl.glEnd()
+
+      gl.glBegin(GL.GL_LINE_STRIP)
+      for (i ← 0 to (a - j)) {
+        gl.glEvalCoord2f((i + j) / b.toFloat, i / a.toFloat)
+      }
+      gl.glEnd()
+
+    }
+
+    gl.glPopMatrix()
+    gl.glFlush()
   }
 
   override def reshape(glAutoDrawable: GLAutoDrawable, x: Int, y: Int, w: Int, h: Int): Unit = {
@@ -100,7 +133,7 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
     gl.glMatrixMode(GL_PROJECTION)
     gl.glLoadIdentity()
     if (w <= h) {
-      gl.glOrtho(-5.0, 5.0, -5.0 * h / w,  5.0 * h / w, -5.0, 5.0)
+      gl.glOrtho(-5.0, 5.0, -5.0 * h / w, 5.0 * h / w, -5.0, 5.0)
     } else {
       gl.glOrtho(-5.0 * w / h, 5.0 * w / h, -5.0, 5.0, -5.0, 5.0)
     }
@@ -109,7 +142,6 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
   }
 
   override def dispose(glAutoDrawable: GLAutoDrawable): Unit = {}
-
 
 
   private def update(): Unit = {
