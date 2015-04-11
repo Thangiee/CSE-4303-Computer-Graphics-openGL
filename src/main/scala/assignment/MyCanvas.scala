@@ -2,7 +2,7 @@ package assignment
 
 import java.awt.{Color, Font}
 import java.awt.event.{KeyEvent, KeyListener}
-import java.nio.FloatBuffer
+import java.nio.{DoubleBuffer, FloatBuffer}
 import javax.media.opengl._
 import javax.media.opengl.awt.GLCanvas
 import javax.media.opengl.fixedfunc.GLLightingFunc
@@ -15,13 +15,13 @@ import com.jogamp.opengl.util.FPSAnimator
 import com.jogamp.opengl.util.awt.TextRenderer
 import utils._
 
+import scala.collection.JavaConversions._
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
-class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(cap) with GLEventListener with KeyListener {
+class MyCanvas(cap: GLCapabilities) extends GLCanvas(cap) with GLEventListener with KeyListener {
   private val vertexes      = new ListBuffer[Vertex]()
   private val faces         = new ListBuffer[Face]()
   private val cameras       = new ListBuffer[Camera]()
-  private val controlPoints = new ListBuffer[ControlPoint]()
   private val textRenderer  = new TextRenderer(new Font("Verdana", Font.BOLD, 12))
   private var inputFile     = "patches_06.txt"
   private var resolution    = 4
@@ -38,11 +38,11 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
   private var scale  = 1.0
 
   setSize(640, 480)
-  //  setLocation(100, 100)
+  setLocation(100, 100)
   addGLEventListener(this)
   addKeyListener(this)
 
-  val ctrlPoints = Array(
+  val ctrlPoints = ArrayBuffer[Double](
     -1.5, -1.5, 4.0,
     -0.5, -1.5, 2.0,
     0.5, -1.5, -1.0,
@@ -80,76 +80,118 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
     gl = glAutoDrawable.getGL.getGL2
 
     // Global settings.
-    gl.glClearColor(0, 0, 0, 0)
-    gl.glMap2d(GL2.GL_MAP2_VERTEX_3, 0, 1, 3, 4, 0, 1, 12, 4, ctrlPoints, 0)
+    gl.glEnable(GL.GL_DEPTH_TEST)
+    gl.glEnable(GL.GL_SCISSOR_TEST)
+    gl.glDepthFunc(GL.GL_LEQUAL)
     gl.glEnable(GL2.GL_MAP2_VERTEX_3)
+    gl.glMap2d(GL2.GL_MAP2_VERTEX_3, 0, 1, 3, 4, 0, 1, 12, 4, DoubleBuffer.wrap(ctrlPoints.toArray))
+
     val animator = new FPSAnimator(this, 30)
     animator.start()
   }
 
   override def display(glAutoDrawable: GLAutoDrawable): Unit = {
-    gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-    gl.glLoadIdentity()
-    val a = 30
-    val b = 30
-    gl.glColor3f(1, 0, 0)
-    gl.glPushMatrix()
-    gl.glRotated(85.0, 1.0, 1.0, 1.0)
+    val w = getWidth
+    val h = getHeight
 
-    gl.glPolygonMode(GL.GL_FRONT_AND_BACK, GL2GL3.GL_FILL)
-    for (j ← 0 to b) {
-      gl.glBegin(GL.GL_LINE_STRIP)
-      for (i ← 0 to a) {
-        gl.glEvalCoord2f(i / a.toFloat, j / b.toFloat)
+    cameras.foreach { c =>
+      val vp = c.viewport
+      val vv = c.viewVolume
+
+      gl.glScissor((vp.minX * w).toInt, (vp.minY * h).toInt, ((vp.maxX - vp.minX) * w).toInt, ((vp.maxY - vp.minY) * h).toInt)
+      gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+      gl.glClearColor(0.2f, 0.2f, 0.2f, 0)
+      gl.glMatrixMode(GL_PROJECTION)
+      gl.glLoadIdentity()
+
+      if (c.projType == Projection.Perspective) {
+        gl.glFrustum(vv.minU, vv.maxU, vv.minV, vv.maxV, vv.minN, vv.maxN)
+      } else {
+        gl.glOrtho(vv.minU, vv.maxU, vv.minV, vv.maxV, vv.minN, vv.maxN)
       }
-      gl.glEnd()
 
-      gl.glBegin(GL.GL_LINE_STRIP)
-      for (i ← 0 to a) {
-        gl.glEvalCoord2f(j / b.toFloat, i / a.toFloat)
-      }
-      gl.glEnd()
+      glu.gluLookAt(
+        c.vrp.x, c.vrp.y, c.vrp.z,
+        c.vpn.x, c.vpn.y, c.vpn.z,
+        c.vup.x, c.vup.y, c.vup.z
+      )
 
-      gl.glBegin(GL.GL_LINE_STRIP)
-      for (i ← 0 to (a - j)) {
-        gl.glEvalCoord2f(i / b.toFloat, (i + j) / a.toFloat)
-      }
-      gl.glEnd()
+      gl.glMatrixMode(GL_MODELVIEW)
+      gl.glLoadIdentity()
 
-      gl.glBegin(GL.GL_LINE_STRIP)
-      for (i ← 0 to (a - j)) {
-        gl.glEvalCoord2f((i + j) / b.toFloat, i / a.toFloat)
-      }
-      gl.glEnd()
+      gl.glViewport((vp.minX * w).toInt, (vp.minY * h).toInt, ((vp.maxX - vp.minX) * w).toInt, ((vp.maxY - vp.minY) * h).toInt)
 
+      // draw camera name
+      textRenderer.beginRendering(200, 150)
+      textRenderer.setColor(Color.YELLOW)
+      textRenderer.setSmoothing(true)
+      textRenderer.draw(c.name, 2, 2)
+      textRenderer.endRendering()
+
+      gl.glPushMatrix()
+      update()
+      render()
+      gl.glPopMatrix()
+      gl.glFlush()
     }
-
-    gl.glPopMatrix()
-    gl.glFlush()
   }
 
-  override def reshape(glAutoDrawable: GLAutoDrawable, x: Int, y: Int, w: Int, h: Int): Unit = {
-    gl.glViewport(0, 0, w, h)
-    gl.glMatrixMode(GL_PROJECTION)
-    gl.glLoadIdentity()
-    if (w <= h) {
-      gl.glOrtho(-5.0, 5.0, -5.0 * h / w, 5.0 * h / w, -5.0, 5.0)
-    } else {
-      gl.glOrtho(-5.0 * w / h, 5.0 * w / h, -5.0, 5.0, -5.0, 5.0)
-    }
-    gl.glMatrixMode(GL_MODELVIEW)
-    gl.glLoadIdentity()
-  }
+  override def reshape(glAutoDrawable: GLAutoDrawable, x: Int, y: Int, w: Int, h: Int): Unit = {}
 
   override def dispose(glAutoDrawable: GLAutoDrawable): Unit = {}
 
-
   private def update(): Unit = {
-    gl.glRotated(angleX, 1, 0, 0)
-    gl.glRotated(angleY, 0, 1, 0)
     gl.glRotated(angleZ, 0, 0, 1)
+    gl.glRotated(angleY, 0, 1, 0)
+    gl.glRotated(angleX, 1, 0, 0)
     gl.glTranslated(transX, transY, transZ)
     gl.glScaled(scale, scale, scale)
+  }
+
+  private def render(): Unit = {
+    gl.glColor3f(1, 0, 0)
+
+    if (true) {
+      // draw patches
+      for ( j ← 0 to resolution ) {
+        gl.glBegin(GL.GL_LINE_STRIP)
+        for ( i ← 0 to resolution ) {
+          gl.glEvalCoord2f(i / resolution.toFloat, j / resolution.toFloat)
+        }
+        gl.glEnd()
+
+        gl.glBegin(GL.GL_LINE_STRIP)
+        for ( i ← 0 to resolution ) {
+          gl.glEvalCoord2f(j / resolution.toFloat, i / resolution.toFloat)
+        }
+        gl.glEnd()
+
+        gl.glBegin(GL.GL_LINE_STRIP)
+        for ( i ← 0 to (resolution - j) ) {
+          gl.glEvalCoord2f(i / resolution.toFloat, (i + j) / resolution.toFloat)
+        }
+        gl.glEnd()
+
+        gl.glBegin(GL.GL_LINE_STRIP)
+        for ( i ← 0 to (resolution - j) ) {
+          gl.glEvalCoord2f((i + j) / resolution.toFloat, i / resolution.toFloat)
+        }
+        gl.glEnd()
+      }
+    }
+
+    gl.glColor3d(1.0, 1.0, 0.0)
+    faces.foreach { f =>
+      val v1 = vertexes(f.k - 1)
+      val v2 = vertexes(f.l - 1)
+      val v3 = vertexes(f.m - 1)
+
+      gl.glBegin(GL.GL_LINE_LOOP)
+      gl.glVertex3d(v1.x, v1.y, v1.z)
+      gl.glVertex3d(v2.x, v2.y, v2.z)
+      gl.glVertex3d(v3.x, v3.y, v3.z)
+      gl.glEnd()
+    }
   }
 
   override def keyTyped(e: KeyEvent): Unit = {
@@ -196,12 +238,13 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
     io.Source.fromFile(inputFile).getLines().mkString("\n").split("\n").foreach { line =>
       line.head match {
         case 'n' => resolution = parseInt(line)
-        case 'b' => controlPoints += parseControlPoint(line)
+        case 'b' => ctrlPoints ++= parseControlPoint(line)
         case 'v' => vertexes += parseVertex(line)
         case 'f' => faces += parseFace(line)
         case _   =>
       }
     }
+    println(ctrlPoints)
   }
 
   private def rotate(degrees: Double, axis: Char): Unit = {
@@ -227,10 +270,16 @@ class MyCanvas(width: Int, height: Int, cap: GLCapabilities) extends GLCanvas(ca
     }
   }
 
-  private def changeResolution(delta: Int) = resolution += delta
+  private def changeResolution(delta: Int) = {
+    if (resolution > 1 && delta < 0) {
+      resolution += delta
+    } else if (resolution < 100 && delta > 0) {
+      resolution += delta
+    }
+  }
 
   private def reset(): Unit = {
-    Seq(vertexes, faces, controlPoints).foreach(_.clear())
+    Seq(vertexes, faces, ctrlPoints).foreach(_.clear())
     angleX = 0.0
     angleY = 0.0
     angleZ = 0.0

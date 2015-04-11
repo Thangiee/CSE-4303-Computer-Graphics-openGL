@@ -1,6 +1,6 @@
 package assignment
 
-import java.awt.{BorderLayout, Dimension}
+import java.awt.{Color, BorderLayout, Dimension}
 import javax.media.opengl.{GLCapabilities, GLProfile}
 import javax.swing.{JFrame, JPanel}
 
@@ -14,7 +14,7 @@ object Main extends App {
     val glp      = GLProfile.getDefault
     val caps     = new GLCapabilities(glp)
 
-    val canvas = new MyCanvas(1280, 768, caps)
+    val canvas = new MyCanvas(caps)
     val panel = new JPanel(new BorderLayout())
     panel.add(canvas, BorderLayout.CENTER)
 
