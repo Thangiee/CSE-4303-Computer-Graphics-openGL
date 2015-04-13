@@ -1,24 +1,15 @@
 package assignment
 
 import java.awt.{Color, Font}
-import java.awt.event.{KeyEvent, KeyListener}
-import java.nio.{DoubleBuffer, FloatBuffer}
 import javax.media.opengl._
 import javax.media.opengl.awt.GLCanvas
-import javax.media.opengl.fixedfunc.GLLightingFunc
 import javax.media.opengl.fixedfunc.GLMatrixFunc._
 import javax.media.opengl.glu.GLU
-import javax.swing.JFileChooser
 
-import assignment.Projection.{Parallel, Perspective}
 import com.jogamp.opengl.util.FPSAnimator
 import com.jogamp.opengl.util.awt.TextRenderer
-import utils._
 
-import scala.collection.JavaConversions._
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
-
-class MyCanvas(vertexes: Seq[Vertex], faces: Seq[Face], cameras: Seq[Camera], ctrlPts: Seq[Double], var resolution: Int) extends GLCanvas() with GLEventListener {
+class MyCanvas(vertexes: Seq[Vertex], faces: Seq[Face], cameras: Seq[Camera], ctrlPts: Seq[CtrlPt], var resolution: Int) extends GLCanvas() with GLEventListener {
   private val textRenderer = new TextRenderer(new Font("Verdana", Font.BOLD, 12))
 
   private var glu: GLU = _
@@ -44,7 +35,6 @@ class MyCanvas(vertexes: Seq[Vertex], faces: Seq[Face], cameras: Seq[Camera], ct
     gl.glEnable(GL.GL_SCISSOR_TEST)
     gl.glDepthFunc(GL.GL_LEQUAL)
     gl.glEnable(GL2.GL_MAP2_VERTEX_3)
-    println(ctrlPts.size)
 
     val animator = new FPSAnimator(this, 30)
     animator.start()
@@ -111,10 +101,10 @@ class MyCanvas(vertexes: Seq[Vertex], faces: Seq[Face], cameras: Seq[Camera], ct
   private def render(): Unit = {
     gl.glColor3f(1, 0, 0)
 
-    ctrlPts.grouped(48).toList.foreach { patch =>
+    ctrlPts.grouped(16).toList.foreach { patch =>  // 16 control points make 1 patch
 
-      gl.glMap2d(GL2.GL_MAP2_VERTEX_3, 0, 1, 3, 4, 0, 1, 12, 4, DoubleBuffer.wrap(patch.toArray))
-      // draw patches
+      gl.glMap2d(GL2.GL_MAP2_VERTEX_3, 0, 1, 3, 4, 0, 1, 12, 4, patch.flatMap(pt => List(pt.x, pt.y, pt.z)).toArray, 0)
+      // draw patch
       for ( j ← 0 to resolution ) {
         gl.glBegin(GL.GL_LINE_STRIP)
         for ( i ← 0 to resolution ) {

@@ -10,15 +10,15 @@ import utils._
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 object Main extends App with AWTEventListener {
-  private val vertexes      = new ListBuffer[Vertex]()
-  private val faces         = new ListBuffer[Face]()
-  private val cameras       = new ListBuffer[Camera]()
-  private var inputFile     = "patches_06.txt"
-  private var resolution    = 4
-  private val ctrlPoints = ArrayBuffer[Double]()
+  private val vertexes   = new ListBuffer[Vertex]()
+  private val faces      = new ListBuffer[Face]()
+  private val cameras    = new ListBuffer[Camera]()
+  private var inputFile  = "patches_06.txt"
+  private var resolution = 4
+  private val ctrlPts    = new ListBuffer[CtrlPt]()
 
-  private val frame = new JFrame()
-  private var canvas = new MyCanvas(vertexes, faces, cameras, ctrlPoints, resolution)
+  private val frame  = new JFrame()
+  private var canvas = new MyCanvas(vertexes, faces, cameras, ctrlPts, resolution)
   private val panel  = new JPanel(new BorderLayout())
 
   init()
@@ -97,19 +97,19 @@ object Main extends App with AWTEventListener {
   private def loadAndDisplay(): Unit = {
     println(s"load $inputFile")
 
-    Seq(vertexes, faces, ctrlPoints).foreach(_.clear())
+    Seq(vertexes, faces, ctrlPts).foreach(_.clear())
     io.Source.fromFile(inputFile).getLines().mkString("\n").split("\n").foreach { line =>
       line.head match {
         case 'n' => resolution = parseInt(line)
-        case 'b' => ctrlPoints ++= parseControlPoint(line)
+        case 'b' => ctrlPts += parseControlPoint(line)
         case 'v' => vertexes += parseVertex(line)
         case 'f' => faces += parseFace(line)
-        case _   =>
+        case _ =>
       }
     }
 
     panel.remove(canvas)
-    canvas = new MyCanvas(vertexes, faces, cameras, ctrlPoints, resolution)
+    canvas = new MyCanvas(vertexes, faces, cameras, ctrlPts, resolution)
     panel.add(canvas)
     frame.pack()
     panel.requestFocus()

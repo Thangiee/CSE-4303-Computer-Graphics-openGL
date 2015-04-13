@@ -55,9 +55,9 @@ trait Parser {
     PRP(x.toDouble, y.toDouble ,z.toDouble)
   }
 
-  def parseControlPoint(text: String): Array[Double] = {
+  def parseControlPoint(text: String): CtrlPt = {
     val Array(x, y, z) = text.split("\\s+").tail
-    Array(x.toDouble, y.toDouble ,z.toDouble)
+    CtrlPt(x.toDouble, y.toDouble ,z.toDouble)
   }
 
   def parseInt(text: String): Int = text.split("\\s+").last.toInt
